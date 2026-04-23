@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: paybook
+    command:
+      - "postgres"
+      - "-c"
+      - "synchronous_commit=on"
+      - "-c"
+      - "wal_compression=on"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "log_min_duration_statement=50"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./scripts/init-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d paybook"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+      - ./scripts:/scripts:ro
+    environment:
+      PGPASSWORD: postgres
+    entrypoint:
+      - sh
+      - -c
+      - |
+        psql -h postgres -U postgres -d paybook -v ON_ERROR_STOP=1 -f /migrations/0001_initial.sql &&
+        psql -h postgres -U postgres -d paybook -v ON_ERROR_STOP=1 -f /scripts/seed.sql
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      HTTP_ADDR: ":8080"
+      METRICS_ADDR: ":9090"
+      DATABASE_URL: "postgres://paybook_app:paybook_app_pw@postgres:5432/paybook?sslmode=disable"
+      HMAC_SECRET: "dev_secret_change_in_production"
+      LOG_LEVEL: "info"
+      DB_MAX_CONNS: "25"
+      DB_MIN_CONNS: "5"
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./scripts/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9091:9090"
+    depends_on:
+      - api
+
+volumes:
+  pg_data:
