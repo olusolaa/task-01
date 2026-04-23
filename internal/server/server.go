@@ -12,9 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/olusolaa/paybook/internal/payments"
-	"github.com/olusolaa/paybook/internal/reconciliation"
 )
 
 type Config struct {
@@ -24,8 +21,8 @@ type Config struct {
 	ShutdownTimeout time.Duration
 	Logger          *slog.Logger
 	Pool            *pgxpool.Pool
-	Payments        *payments.Service
-	Reconciliation  *reconciliation.Service
+	Payments        PaymentsService
+	Reconciliation  ReconciliationService
 	Registry        prometheus.Registerer
 }
 
@@ -34,8 +31,8 @@ type Server struct {
 	log            *slog.Logger
 	pool           *pgxpool.Pool
 	metrics        *Metrics
-	payments       *payments.Service
-	reconciliation *reconciliation.Service
+	payments       PaymentsService
+	reconciliation ReconciliationService
 
 	httpServer    *http.Server
 	metricsServer *http.Server

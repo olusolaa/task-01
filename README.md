@@ -161,6 +161,18 @@ docs/
   replay-safety.md          idempotency proof walked through the races
 ```
 
+## Interfaces: where they are and why
+
+Interfaces are defined where they earn their keep, not at every layer:
+
+- **`PaymentsService` and `ReconciliationService`** ([internal/server/interfaces.go](internal/server/interfaces.go)) — the handler's view of the business surface. Defined in the *consumer* package (`server`), not the producer, per Go's "accept interfaces, return structs" idiom. They buy two things: handler unit tests that substitute a fake and don't need a database ([payments_handler_test.go](internal/server/payments_handler_test.go) has six of them), and a clean seam for a future second implementation (e.g. the Kafka-buffered variant narrated in the scale path).
+- **`Querier`** ([payments/repo.go](internal/payments/repo.go)) — pgx's `Tx` and `pgxpool.Pool` both satisfy it, so every repo method works inside or outside a transaction without duplicate signatures.
+- **`Clock`** ([payments/service.go](internal/payments/service.go)) — lets the clock-skew validator be tested deterministically against a fixed time.
+
+What's *not* extracted: there is no `PaymentsRepository` interface, no `Storer`, no `Logger` abstraction, no `mocks/` directory. The repo is a concrete `*Repo` because only one implementation exists, the service-to-repo path is covered by integration tests against real Postgres, and abstracting over a single implementation adds indirection without testability or flexibility gain. If a second repo appears, the interface appears with it.
+
+This is a judgment call. Teams that enforce hexagonal/ports-and-adapters strictly will want more interfaces; teams that read Cheney on "don't mock what you don't own" will read this the same way. The trade-off is stated here so a reviewer can challenge it on merit, not guess at intent.
+
 ## Dependencies
 
 `go.mod` pulls five modules worth naming:
