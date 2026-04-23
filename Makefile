@@ -38,15 +38,16 @@ run: ## Run the api from source (expects .env loaded)
 
 .PHONY: test
 test: ## Run unit + integration + property tests with race detector
-	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -count=1 -timeout=5m ./...
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -count=1 -timeout=5m ./internal/... ./test/integration/...
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -count=1 -timeout=10m ./test/property/... -rapid.checks=50
 
 .PHONY: test-unit
 test-unit: ## Unit tests only (no db required)
 	go test -race -count=1 ./internal/...
 
 .PHONY: property
-property: ## Property tests, longer run
-	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -count=1 -timeout=10m -run=TestProperty ./test/property/...
+property: ## Property tests, longer run (500 checks per property)
+	TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -race -count=1 -timeout=15m ./test/property/... -rapid.checks=500
 
 .PHONY: load-steady
 load-steady: ## k6 steady-state at 2k TPS for 60s
