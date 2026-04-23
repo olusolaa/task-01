@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: paybook
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: create app role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d paybook -v ON_ERROR_STOP=1 \
+            -f scripts/init-roles.sql
+
+      - name: apply migrations
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d paybook -v ON_ERROR_STOP=1 \
+            -f migrations/0001_initial.sql
+
+      - name: build
+        run: go build ./...
+
+      - name: vet
+        run: go vet ./...
+
+      - name: unit + integration tests (race)
+        env:
+          TEST_DATABASE_URL: "postgres://postgres:postgres@localhost:5432/paybook?sslmode=disable"
+        run: go test -race -count=1 -timeout=5m ./internal/... ./test/integration/...
+
+      - name: property tests
+        env:
+          TEST_DATABASE_URL: "postgres://postgres:postgres@localhost:5432/paybook?sslmode=disable"
+        run: go test -count=1 -timeout=10m ./test/property/... -rapid.checks=50
