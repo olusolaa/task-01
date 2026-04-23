@@ -113,7 +113,16 @@ Check constraints enforce the invariants that belong at the storage layer:
 - `(result = 'APPLIED') = (applied_balance_kobo IS NOT NULL)`
 - `(result = 'REJECTED') = (reject_reason IS NOT NULL)`
 
-The application role (`paybook_app`) is granted `SELECT, INSERT, UPDATE` only. No `DELETE`, no `TRUNCATE`, no `DROP`. The ledger is immutable by the database, not by convention.
+The application role (`paybook_app`) gets a narrow grant set, table by table:
+
+```
+customers         SELECT          (existence check)
+deployments       SELECT, UPDATE  (routing lookup; balance + state transition)
+virtual_accounts  SELECT          (not read in the current code path)
+payments          SELECT, INSERT  (append-only from the app's point of view)
+```
+
+No `DELETE`, no `TRUNCATE`, no `DROP`, no `UPDATE` on `payments`. The ledger is immutable by the database, not by convention.
 
 ## Scale path
 
