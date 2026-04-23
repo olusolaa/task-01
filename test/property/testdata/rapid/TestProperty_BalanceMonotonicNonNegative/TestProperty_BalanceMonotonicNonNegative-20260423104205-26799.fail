@@ -1,0 +1,11 @@
+# 2026/04/23 10:42:05.484856 [TestProperty_BalanceMonotonicNonNegative] [rapid] draw n: 5
+# 2026/04/23 10:42:05.484953 [TestProperty_BalanceMonotonicNonNegative] [rapid] draw amount: 1
+# 2026/04/23 10:42:05.487914 [TestProperty_BalanceMonotonicNonNegative] do: Post "http://127.0.0.1:63783/payments": dial tcp 127.0.0.1:63783: connect: can't assign requested address
+# 
+v0.4.8#6916259881079192242
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0

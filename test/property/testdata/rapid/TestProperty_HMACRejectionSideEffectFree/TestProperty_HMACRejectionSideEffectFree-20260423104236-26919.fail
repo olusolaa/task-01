@@ -1,0 +1,11 @@
+# 2026/04/23 10:42:36.804798 [TestProperty_HMACRejectionSideEffectFree] [rapid] draw n: 1
+# 2026/04/23 10:42:36.804815 [TestProperty_HMACRejectionSideEffectFree] [rapid] draw amount: 1
+# 2026/04/23 10:42:36.805888 [TestProperty_HMACRejectionSideEffectFree] do: Post "http://127.0.0.1:63156/payments": dial tcp 127.0.0.1:63156: connect: can't assign requested address
+# 
+v0.4.8#8025852585834331382
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0

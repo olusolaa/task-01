@@ -1,0 +1,23 @@
+# 2026/04/23 10:42:00.742799 [TestProperty_ZeroBalanceTransitionsState] [rapid] draw chunks: 5
+# 2026/04/23 10:42:00.742815 [TestProperty_ZeroBalanceTransitionsState] [rapid] draw amt: 1
+# 2026/04/23 10:42:00.742828 [TestProperty_ZeroBalanceTransitionsState] [rapid] draw amt: 1
+# 2026/04/23 10:42:00.742840 [TestProperty_ZeroBalanceTransitionsState] [rapid] draw amt: 1
+# 2026/04/23 10:42:00.742847 [TestProperty_ZeroBalanceTransitionsState] [rapid] draw amt: 1
+# 2026/04/23 10:42:00.744101 [TestProperty_ZeroBalanceTransitionsState] do: Post "http://127.0.0.1:63097/payments": dial tcp 127.0.0.1:63097: connect: can't assign requested address
+# 
+v0.4.8#6786488185354736073
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0

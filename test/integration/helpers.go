@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -45,34 +46,76 @@ func dbURL(t *testing.T) string {
 	return url
 }
 
-// mustPool opens a pool against the test database. It applies the migration
-// idempotently so a naked postgres can be used as the test target.
+// migrationOnce ensures the schema migration runs at most once per test
+// binary. Running it on every mustPool call serialises under Postgres
+// catalog locks when test packages execute in parallel, which surfaced
+// as flaky sub-second timeouts under `go test ./...`.
+var (
+	migrationOnce sync.Once
+	migrationErr  error
+)
+
+// mustPool opens a pool against the test database and ensures the schema
+// migration has been applied exactly once for the lifetime of the test
+// binary. The pool is deliberately small so `go test ./...` can run
+// multiple test binaries in parallel without approaching the postgres
+// connection limit.
 func mustPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	pool, err := pgxpool.New(ctx, dbURL(t))
+
+	cfg, err := pgxpool.ParseConfig(dbURL(t))
+	if err != nil {
+		t.Fatalf("parse pool config: %v", err)
+	}
+	cfg.MaxConns = 8
+	cfg.MinConns = 1
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		t.Fatalf("open pool: %v", err)
 	}
-	applyMigration(t, pool)
+	migrationOnce.Do(func() { migrationErr = applyMigrationOnce(pool) })
+	if migrationErr != nil {
+		t.Fatalf("apply migration: %v", migrationErr)
+	}
 	t.Cleanup(pool.Close)
 	return pool
 }
 
-func applyMigration(t *testing.T, pool *pgxpool.Pool) {
-	t.Helper()
+// migrationLockKey serialises DDL across concurrent test binaries. Without
+// it, `go test ./...` runs integration, property, and server package tests
+// in parallel, and their simultaneous CREATE TABLE / CREATE TYPE calls
+// deadlock on postgres catalog locks even when each statement uses
+// IF NOT EXISTS or EXCEPTION handling.
+const migrationLockKey int64 = 0x70617962 // ascii "payb"
+
+func applyMigrationOnce(pool *pgxpool.Pool) error {
 	_, thisFile, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(thisFile), "..", "..")
 	content, err := os.ReadFile(filepath.Join(root, "migrations", "0001_initial.sql"))
 	if err != nil {
-		t.Fatalf("read migration: %v", err)
+		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if _, err := pool.Exec(ctx, string(content)); err != nil {
-		t.Fatalf("apply migration: %v", err)
+
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
 	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, migrationLockKey); err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, migrationLockKey)
+	}()
+
+	_, err = conn.Exec(ctx, string(content))
+	return err
 }
 
 // Fixture is a freshly seeded customer+deployment+virtual-account tuple
