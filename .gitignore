@@ -9,6 +9,8 @@ tmp/
 coverage.out
 coverage.html
 
+test/property/testdata/rapid/
+
 load/results/*.json
 load/results/*.csv
 !load/results/.gitkeep
