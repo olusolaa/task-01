@@ -20,7 +20,7 @@ api_ready || { echo "api not ready; start the stack first"; exit 1; }
 # Use a fresh test customer so we can assert balance cleanly.
 CUSTOMER_ID="CHAOS_DB_KILL_$(date +%s)"
 echo "[chaos] seeding customer=$CUSTOMER_ID"
-docker exec -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -v ON_ERROR_STOP=1 <<SQL
+docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -v ON_ERROR_STOP=1 <<SQL
 INSERT INTO customers (id) VALUES ('$CUSTOMER_ID');
 INSERT INTO deployments (customer_id, value_kobo, term_weeks, current_balance_kobo, started_at)
 VALUES ('$CUSTOMER_ID', 100000000, 50, 100000000, now() - '1 day'::interval);
@@ -38,7 +38,7 @@ for i in $(seq 1 5); do
 done
 
 # Read baseline balance.
-BASELINE=$(docker exec -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -tAc \
+BASELINE=$(docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -tAc \
     "SELECT current_balance_kobo FROM deployments WHERE customer_id = '$CUSTOMER_ID'")
 echo "[chaos] baseline balance after 5 payments: $BASELINE (expected 99950000)"
 [[ "$BASELINE" == "99950000" ]] || { echo "baseline mismatch"; exit 1; }
@@ -98,7 +98,7 @@ for i in $(seq 1 10); do
 done
 
 # Verify balance integrity: stored == value - SUM(applied).
-FINAL=$(docker exec -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -tAc \
+FINAL=$(docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -tAc \
     "SELECT d.current_balance_kobo,
             d.value_kobo - COALESCE(SUM(p.amount_kobo) FILTER (WHERE p.result = 'APPLIED'), 0) AS computed
      FROM deployments d

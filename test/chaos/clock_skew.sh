@@ -11,7 +11,7 @@ source "$HERE/lib.sh"
 api_ready || { echo "api not ready"; exit 1; }
 
 CUSTOMER_ID="CHAOS_SKEW_$(date +%s)"
-docker exec -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -v ON_ERROR_STOP=1 <<SQL >/dev/null
+docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -v ON_ERROR_STOP=1 <<SQL >/dev/null
 INSERT INTO customers (id) VALUES ('$CUSTOMER_ID');
 INSERT INTO deployments (customer_id, value_kobo, term_weeks, current_balance_kobo, started_at)
 VALUES ('$CUSTOMER_ID', 100000000, 50, 100000000, now());
@@ -28,7 +28,7 @@ echo "[chaos] future-dated payment status: $status (expected 400)"
 [[ "$status" == "400" ]] || { echo "expected 400, got $status"; exit 1; }
 
 # Ensure nothing persisted.
-cnt=$(docker exec -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -tAc \
+cnt=$(docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -tAc \
     "SELECT COUNT(*) FROM payments WHERE customer_id = '$CUSTOMER_ID'")
 echo "[chaos] payments persisted for skewed request: $cnt (expected 0)"
 [[ "$cnt" == "0" ]] || { echo "validation error left a payment row"; exit 1; }

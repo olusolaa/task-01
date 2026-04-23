@@ -22,7 +22,7 @@ if ! docker network inspect "$NETWORK" >/dev/null 2>&1; then
 fi
 
 CUSTOMER_ID="CHAOS_NET_$(date +%s)"
-docker exec -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -v ON_ERROR_STOP=1 <<SQL >/dev/null
+docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -v ON_ERROR_STOP=1 <<SQL >/dev/null
 INSERT INTO customers (id) VALUES ('$CUSTOMER_ID');
 INSERT INTO deployments (customer_id, value_kobo, term_weeks, current_balance_kobo, started_at)
 VALUES ('$CUSTOMER_ID', 100000000, 50, 100000000, now());
@@ -61,7 +61,7 @@ for i in $(seq 1 10); do
 done
 
 # Integrity check.
-FINAL=$(docker exec -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -tAc \
+FINAL=$(docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" psql -h localhost -U postgres -d paybook -tAc \
     "SELECT d.current_balance_kobo,
             d.value_kobo - COALESCE(SUM(p.amount_kobo) FILTER (WHERE p.result = 'APPLIED'), 0) AS computed
      FROM deployments d
