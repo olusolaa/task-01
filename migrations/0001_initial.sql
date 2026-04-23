@@ -98,8 +98,18 @@ CREATE INDEX IF NOT EXISTS idx_payments_non_applied_status
 -- ---------------------------------------------------------------------------
 -- Least-privilege application grants
 --
--- The paybook_app role can read everything and write new rows.
--- It cannot DELETE, TRUNCATE, DROP, or ALTER anything.
+-- The paybook_app role gets the minimum it needs:
+--   customers         SELECT         (existence check)
+--   deployments       SELECT, UPDATE (route lookup + balance/state transition)
+--   virtual_accounts  SELECT         (not read in the current code path;
+--                                     granted so future VA-keyed routing works
+--                                     without a migration)
+--   payments          SELECT, INSERT (ledger is append-only from the app's
+--                                     point of view; no UPDATE grant means
+--                                     ledger rows are immutable by the service)
+--
+-- Not granted on any table: DELETE, TRUNCATE, REFERENCES, TRIGGER.
+-- Not granted at schema/db level: CREATE, DROP, ALTER.
 -- ---------------------------------------------------------------------------
 
 DO $$
@@ -107,9 +117,11 @@ BEGIN
     IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'paybook_app') THEN
         GRANT CONNECT ON DATABASE paybook TO paybook_app;
         GRANT USAGE ON SCHEMA public TO paybook_app;
-        GRANT SELECT, INSERT, UPDATE
-            ON customers, deployments, virtual_accounts, payments
-            TO paybook_app;
+
+        GRANT SELECT                  ON customers        TO paybook_app;
+        GRANT SELECT, UPDATE          ON deployments      TO paybook_app;
+        GRANT SELECT                  ON virtual_accounts TO paybook_app;
+        GRANT SELECT, INSERT          ON payments         TO paybook_app;
     END IF;
 END $$;
 

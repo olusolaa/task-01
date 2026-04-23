@@ -79,7 +79,6 @@ func TestDecide_Applied(t *testing.T) {
 	dep := &Deployment{
 		ID:                 "11111111-1111-1111-1111-111111111111",
 		CustomerID:         "GIG00001",
-		ValueKobo:          money.Kobo(100000000),
 		CurrentBalanceKobo: money.Kobo(100000000),
 		State:              DeploymentActive,
 	}
@@ -100,7 +99,7 @@ func TestDecide_Applied(t *testing.T) {
 
 func TestDecide_TransitionsOnZero(t *testing.T) {
 	p := Payment{Status: StatusComplete, AmountKobo: 100, TransactionReference: "x"}
-	dep := &Deployment{State: DeploymentActive, CurrentBalanceKobo: 100, ValueKobo: 1000, ID: "x"}
+	dep := &Deployment{State: DeploymentActive, CurrentBalanceKobo: 100, ID: "x"}
 	d := decide(p, dep)
 	if d.newDeploymentState != DeploymentFullyRepaid {
 		t.Fatalf("expected FULLY_REPAID, got %s", d.newDeploymentState)
@@ -112,7 +111,7 @@ func TestDecide_TransitionsOnZero(t *testing.T) {
 
 func TestDecide_Overpayment(t *testing.T) {
 	p := Payment{Status: StatusComplete, AmountKobo: 200, TransactionReference: "x"}
-	dep := &Deployment{State: DeploymentActive, CurrentBalanceKobo: 100, ValueKobo: 1000, ID: "x"}
+	dep := &Deployment{State: DeploymentActive, CurrentBalanceKobo: 100, ID: "x"}
 	d := decide(p, dep)
 	if d.result != ResultRejected || d.rejectReason != "overpayment" {
 		t.Fatalf("got %+v", d)
@@ -124,7 +123,7 @@ func TestDecide_Overpayment(t *testing.T) {
 
 func TestDecide_InactiveDeployment(t *testing.T) {
 	p := Payment{Status: StatusComplete, AmountKobo: 10, TransactionReference: "x"}
-	dep := &Deployment{State: DeploymentFullyRepaid, CurrentBalanceKobo: 0, ValueKobo: 1000, ID: "x"}
+	dep := &Deployment{State: DeploymentFullyRepaid, CurrentBalanceKobo: 0, ID: "x"}
 	d := decide(p, dep)
 	if d.result != ResultRejected || d.rejectReason != "deployment_inactive" {
 		t.Fatalf("got %+v", d)
@@ -133,7 +132,7 @@ func TestDecide_InactiveDeployment(t *testing.T) {
 
 func TestDecide_NonCompleteRecorded(t *testing.T) {
 	p := Payment{Status: StatusPending, AmountKobo: 10, TransactionReference: "x"}
-	dep := &Deployment{State: DeploymentActive, CurrentBalanceKobo: 1000, ValueKobo: 1000, ID: "x"}
+	dep := &Deployment{State: DeploymentActive, CurrentBalanceKobo: 1000, ID: "x"}
 	d := decide(p, dep)
 	if d.result != ResultRecorded {
 		t.Fatalf("got %s", d.result)

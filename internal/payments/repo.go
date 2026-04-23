@@ -98,23 +98,22 @@ func (r *Repo) LockRoutingDeployment(ctx context.Context, q Querier, customerID 
 	}
 
 	var dep Deployment
-	var value, balance int64
+	var balance int64
 	var state string
 	err := q.QueryRow(ctx, `
-		SELECT id, customer_id, value_kobo, current_balance_kobo, state, started_at
+		SELECT id, customer_id, current_balance_kobo, state, started_at
 		FROM deployments
 		WHERE customer_id = $1
 		ORDER BY (state = 'ACTIVE') DESC, started_at ASC
 		LIMIT 1
 		FOR UPDATE
-	`, customerID).Scan(&dep.ID, &dep.CustomerID, &value, &balance, &state, &dep.StartedAt)
+	`, customerID).Scan(&dep.ID, &dep.CustomerID, &balance, &state, &dep.StartedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrDeploymentNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("lock deployment: %w", err)
 	}
-	dep.ValueKobo = money.Kobo(value)
 	dep.CurrentBalanceKobo = money.Kobo(balance)
 	dep.State = DeploymentState(state)
 	return &dep, nil

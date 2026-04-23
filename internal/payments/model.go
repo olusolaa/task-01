@@ -62,7 +62,6 @@ type Payment struct {
 type Deployment struct {
 	ID                 string
 	CustomerID         string
-	ValueKobo          money.Kobo
 	CurrentBalanceKobo money.Kobo
 	State              DeploymentState
 	StartedAt          time.Time
