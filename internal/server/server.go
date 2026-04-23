@@ -126,6 +126,12 @@ func (s *Server) Run(ctx context.Context) error {
 	return firstErr
 }
 
+// HTTPHandler returns the fully-middlewared public router. Tests use it
+// to drive the server via httptest.NewServer without starting a listener.
+func (s *Server) HTTPHandler() http.Handler {
+	return s.mainRouter()
+}
+
 func (s *Server) mainRouter() http.Handler {
 	// HMAC only guards the write path. Balance and health endpoints are
 	// readable without a signature so SRE can probe them directly.

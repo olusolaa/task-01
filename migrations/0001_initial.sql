@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS payments (
     result                application_result NOT NULL,
     reject_reason         TEXT,
     response_status       SMALLINT NOT NULL CHECK (response_status BETWEEN 100 AND 599),
-    response_body         JSONB NOT NULL,
+    response_body         BYTEA NOT NULL,
     transaction_date      TIMESTAMPTZ NOT NULL,
     received_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     applied_balance_kobo  BIGINT,

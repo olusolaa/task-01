@@ -75,11 +75,17 @@ func (r *Repo) LookupByTxnRef(ctx context.Context, q Querier, ref string) (*Stor
 	return &out, nil
 }
 
-// LockActiveDeployment finds the customer's oldest active deployment and
-// locks its row for the duration of the surrounding transaction. Returns
-// ErrCustomerNotFound if the customer does not exist and
-// ErrDeploymentNotFound if the customer exists but has no active deployment.
-func (r *Repo) LockActiveDeployment(ctx context.Context, q Querier, customerID string) (*Deployment, error) {
+// LockRoutingDeployment resolves the customer's routing deployment and
+// locks its row for the surrounding transaction.
+//
+// Policy (stated in ADR 001): prefer the oldest active deployment. If no
+// deployment is active, return the oldest inactive one so the caller can
+// respond with a specific "deployment_inactive" error instead of a vague
+// "not found".
+//
+// Errors: ErrCustomerNotFound if the customer id is unknown, or
+// ErrDeploymentNotFound if the customer has no deployments at all.
+func (r *Repo) LockRoutingDeployment(ctx context.Context, q Querier, customerID string) (*Deployment, error) {
 	var exists bool
 	if err := q.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM customers WHERE id = $1)`,
@@ -97,8 +103,8 @@ func (r *Repo) LockActiveDeployment(ctx context.Context, q Querier, customerID s
 	err := q.QueryRow(ctx, `
 		SELECT id, customer_id, value_kobo, current_balance_kobo, state, started_at
 		FROM deployments
-		WHERE customer_id = $1 AND state = 'ACTIVE'
-		ORDER BY started_at ASC
+		WHERE customer_id = $1
+		ORDER BY (state = 'ACTIVE') DESC, started_at ASC
 		LIMIT 1
 		FOR UPDATE
 	`, customerID).Scan(&dep.ID, &dep.CustomerID, &value, &balance, &state, &dep.StartedAt)

@@ -116,7 +116,7 @@ func (s *Service) Apply(ctx context.Context, p Payment) (*Outcome, error) {
 			return nil
 		}
 
-		dep, err := s.repo.LockActiveDeployment(ctx, tx, p.CustomerID)
+		dep, err := s.repo.LockRoutingDeployment(ctx, tx, p.CustomerID)
 		if err != nil {
 			return err
 		}
