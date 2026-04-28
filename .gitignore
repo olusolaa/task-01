@@ -18,3 +18,4 @@ load/results/*.csv
 .DS_Store
 .idea/
 .vscode/
+.claude/
