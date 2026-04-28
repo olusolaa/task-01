@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://localhost:8080}"
+BASE_URL="${BASE_URL:-http://localhost:8085}"
 HMAC_SECRET="${HMAC_SECRET:-dev_secret_change_in_production}"
 
 sign() {
