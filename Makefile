@@ -1,7 +1,9 @@
 SHELL := /bin/bash
 
 POSTGRES_SUPERUSER_URL ?= postgres://postgres:postgres@localhost:5432/paybook?sslmode=disable
-TEST_DATABASE_URL ?= postgres://paybook_app:paybook_app_pw@localhost:5432/paybook?sslmode=disable
+# Tests apply the migration idempotently, which is DDL — needs superuser.
+# The application binary uses paybook_app (least-privilege role) at runtime.
+TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/paybook?sslmode=disable
 
 .PHONY: help
 help:
