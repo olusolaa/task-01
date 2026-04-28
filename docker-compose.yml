@@ -63,8 +63,8 @@ services:
       DB_MAX_CONNS: "25"
       DB_MIN_CONNS: "5"
     ports:
-      - "8080:8080"
-      - "9090:9090"
+      - "${HOST_HTTP_PORT:-8080}:8080"
+      - "${HOST_METRICS_PORT:-9090}:9090"
 
   prometheus:
     image: prom/prometheus:latest
