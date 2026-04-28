@@ -1,0 +1,313 @@
+{
+  "info": {
+    "name": "paybook",
+    "description": "Payment apply service. POST /payments is HMAC-signed; signature is computed by the collection-level pre-request script using `hmac_secret`. To send a deliberately-bad signature for the 401 test, override the X-Signature header on that request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "paybook-001"
+  },
+  "variable": [
+    { "key": "base_url",    "value": "http://localhost:8085" },
+    { "key": "metrics_url", "value": "http://localhost:9095" },
+    { "key": "hmac_secret", "value": "dev_secret_change_in_production" },
+    { "key": "ref",         "value": "DEMO_001" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Sign request body with HMAC-SHA256 unless an X-Signature header is already set.",
+          "if (pm.request.method === 'POST' && pm.request.body && pm.request.body.raw) {",
+          "  const body = pm.request.body.raw;",
+          "  const secret = pm.collectionVariables.get('hmac_secret');",
+          "  const sig = CryptoJS.HmacSHA256(body, secret).toString(CryptoJS.enc.Hex);",
+          "  const existing = pm.request.headers.get('X-Signature');",
+          "  if (!existing || existing === '__AUTOSIGN__') {",
+          "    pm.request.headers.upsert({ key: 'X-Signature', value: sig });",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health — liveness",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{base_url}}/healthz", "host": ["{{base_url}}"], "path": ["healthz"] }
+      }
+    },
+    {
+      "name": "Health — readiness (pings DB)",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{base_url}}/readyz", "host": ["{{base_url}}"], "path": ["readyz"] }
+      }
+    },
+    {
+      "name": "Apply — happy path (201)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 201', () => pm.response.to.have.status(201));",
+              "pm.test('result applied', () => pm.expect(pm.response.json().status).to.eql('applied'));",
+              "pm.test('no Idempotent-Replayed header', () => {",
+              "  pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.be.oneOf([null, '']);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Signature", "value": "__AUTOSIGN__" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"10000\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"{{ref}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
+      }
+    },
+    {
+      "name": "Apply — replay same ref (201 + Idempotent-Replayed: true)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 201', () => pm.response.to.have.status(201));",
+              "pm.test('Idempotent-Replayed: true', () => {",
+              "  pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Signature", "value": "__AUTOSIGN__" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"10000\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"{{ref}}\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
+      },
+      "description": "Send the exact same body as the happy path. Service returns the originally stored response bytes verbatim with the Idempotent-Replayed: true header. Run after the happy-path request."
+    },
+    {
+      "name": "Apply — overpayment (409)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('error overpayment', () => pm.expect(pm.response.json().error).to.eql('overpayment'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Signature", "value": "__AUTOSIGN__" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"999999999999\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"DEMO_OVERPAY\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
+      }
+    },
+    {
+      "name": "Apply — non-COMPLETE status recorded (202)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 202', () => pm.response.to.have.status(202));",
+              "pm.test('result recorded', () => pm.expect(pm.response.json().status).to.eql('recorded'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Signature", "value": "__AUTOSIGN__" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"PENDING\",\n  \"transaction_amount\": \"5000\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"DEMO_PENDING\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
+      }
+    },
+    {
+      "name": "Apply — unknown customer (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 404', () => pm.response.to.have.status(404));",
+              "pm.test('error customer_not_found', () => pm.expect(pm.response.json().error).to.eql('customer_not_found'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Signature", "value": "__AUTOSIGN__" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_id\": \"GIG_DOES_NOT_EXIST\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"1000\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"DEMO_404\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
+      }
+    },
+    {
+      "name": "Apply — invalid amount (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 400', () => pm.response.to.have.status(400));",
+              "pm.test('error invalid_amount', () => pm.expect(pm.response.json().error).to.eql('invalid_amount'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Signature", "value": "__AUTOSIGN__" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"10.50\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"DEMO_BAD_AMT\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
+      }
+    },
+    {
+      "name": "Apply — bad HMAC (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 401', () => pm.response.to.have.status(401));",
+              "pm.test('error invalid_signature', () => pm.expect(pm.response.json().error).to.match(/signature/));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Signature", "value": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"1000\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"DEMO_BADSIG\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
+      },
+      "description": "X-Signature is set explicitly to a wrong value (deadbeef...). The pre-request auto-sign skips because the header already has a real value, not __AUTOSIGN__."
+    },
+    {
+      "name": "Apply — missing signature (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        },
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Override collection auto-sign: ensure the X-Signature header is absent.",
+              "pm.request.headers.remove('X-Signature');"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"1000\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"DEMO_NOSIG\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
+      }
+    },
+    {
+      "name": "Balance — stored vs computed + drift",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('drift is zero across all deployments', () => {",
+              "  pm.response.json().deployments.forEach(d => pm.expect(d.drift_kobo).to.eql(0));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/customers/GIG00001/balance",
+          "host": ["{{base_url}}"],
+          "path": ["customers", "GIG00001", "balance"]
+        }
+      }
+    },
+    {
+      "name": "Metrics — prometheus exposition",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{metrics_url}}/metrics", "host": ["{{metrics_url}}"], "path": ["metrics"] }
+      }
+    }
+  ]
+}
