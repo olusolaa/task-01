@@ -212,7 +212,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"10.50\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"DEMO_BAD_AMT\"\n}"
+          "raw": "{\n  \"customer_id\": \"GIG00001\",\n  \"payment_status\": \"COMPLETE\",\n  \"transaction_amount\": \"10.555\",\n  \"transaction_date\": \"2025-11-07 14:54:16\",\n  \"transaction_reference\": \"DEMO_BAD_AMT\"\n}"
         },
         "url": { "raw": "{{base_url}}/payments", "host": ["{{base_url}}"], "path": ["payments"] }
       }

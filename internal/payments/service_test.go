@@ -31,7 +31,8 @@ func TestValidateAndParse_Happy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	if p.AmountKobo != money.Kobo(10000) {
+	// Wire format is naira: "10000" → 10_000 NGN → 1_000_000 kobo.
+	if p.AmountKobo != money.Kobo(1_000_000) {
 		t.Fatalf("amount: got %d", p.AmountKobo)
 	}
 	if p.Status != StatusComplete {

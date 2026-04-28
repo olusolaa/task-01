@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -225,6 +226,18 @@ func randomRef() string {
 	return "PVPAY" + hex.EncodeToString(b[:])
 }
 
+// nairaString turns int64 kobo into the naira wire string the bank
+// webhook contract uses ("100", "100.50", "0.01", ...). Mirror of the
+// helper in the integration test package.
+func nairaString(kobo int64) string {
+	if kobo%100 == 0 {
+		return strconv.FormatInt(kobo/100, 10)
+	}
+	whole := kobo / 100
+	frac := kobo % 100
+	return fmt.Sprintf("%d.%02d", whole, frac)
+}
+
 func (h *harness) storedBalance(t require, depID string) int64 {
 	t.Helper()
 	var b int64
@@ -287,7 +300,7 @@ func TestProperty_BalanceEqualsLedgerProjection(t *testing.T) {
 			p := payload{
 				CustomerID:           f.CustomerID,
 				PaymentStatus:        status,
-				TransactionAmount:    strconv.FormatInt(amount, 10),
+				TransactionAmount:    nairaString(amount),
 				TransactionDate:      time.Now().UTC().Format("2006-01-02 15:04:05"),
 				TransactionReference: randomRef(),
 			}
@@ -319,7 +332,7 @@ func TestProperty_BalanceMonotonicNonNegative(t *testing.T) {
 			p := payload{
 				CustomerID:           f.CustomerID,
 				PaymentStatus:        "COMPLETE",
-				TransactionAmount:    strconv.FormatInt(amount, 10),
+				TransactionAmount:    nairaString(amount),
 				TransactionDate:      time.Now().UTC().Format("2006-01-02 15:04:05"),
 				TransactionReference: randomRef(),
 			}
@@ -353,7 +366,7 @@ func TestProperty_ReplayByteIdentical(t *testing.T) {
 		p := payload{
 			CustomerID:           f.CustomerID,
 			PaymentStatus:        status,
-			TransactionAmount:    strconv.FormatInt(amount, 10),
+			TransactionAmount:    nairaString(amount),
 			TransactionDate:      time.Now().UTC().Format("2006-01-02 15:04:05"),
 			TransactionReference: randomRef(),
 		}
@@ -398,7 +411,7 @@ func TestProperty_ExactlyOneApplicationPerRef(t *testing.T) {
 		p := payload{
 			CustomerID:           f.CustomerID,
 			PaymentStatus:        "COMPLETE",
-			TransactionAmount:    strconv.FormatInt(amount, 10),
+			TransactionAmount:    nairaString(amount),
 			TransactionDate:      time.Now().UTC().Format("2006-01-02 15:04:05"),
 			TransactionReference: randomRef(),
 		}
@@ -439,7 +452,7 @@ func TestProperty_HMACRejectionSideEffectFree(t *testing.T) {
 			p := payload{
 				CustomerID:           f.CustomerID,
 				PaymentStatus:        "COMPLETE",
-				TransactionAmount:    strconv.FormatInt(amount, 10),
+				TransactionAmount:    nairaString(amount),
 				TransactionDate:      time.Now().UTC().Format("2006-01-02 15:04:05"),
 				TransactionReference: randomRef(),
 			}
@@ -489,7 +502,7 @@ func TestProperty_ZeroBalanceTransitionsState(t *testing.T) {
 			p := payload{
 				CustomerID:           f.CustomerID,
 				PaymentStatus:        "COMPLETE",
-				TransactionAmount:    strconv.FormatInt(a, 10),
+				TransactionAmount:    nairaString(a),
 				TransactionDate:      time.Now().UTC().Format("2006-01-02 15:04:05"),
 				TransactionReference: randomRef(),
 			}

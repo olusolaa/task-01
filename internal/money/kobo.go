@@ -6,6 +6,7 @@ package money
 import (
 	"errors"
 	"strconv"
+	"strings"
 )
 
 // Kobo is a signed integer count of kobo (1 NGN = 100 kobo).
@@ -22,10 +23,10 @@ var (
 	ErrOutOfRange  = errors.New("amount out of range")
 )
 
-// ParseKobo accepts a strict integer-string amount like "10000".
-// It rejects decimals, scientific notation, signs, whitespace, and leading
-// zeros. The string format is chosen for us in the payload; the strictness
-// is our policy.
+// ParseKobo accepts a strict integer-string amount like "10000" interpreted
+// as kobo. Kept for completeness; the wire payload is naira so the service
+// uses ParseNaira. Rejects decimals, scientific notation, signs, whitespace,
+// and leading zeros.
 func ParseKobo(s string) (Kobo, error) {
 	if s == "" {
 		return 0, ErrEmpty
@@ -46,6 +47,77 @@ func ParseKobo(s string) (Kobo, error) {
 		return 0, ErrNonPositive
 	}
 	return Kobo(n), nil
+}
+
+// ParseNaira parses a payment amount in naira and returns kobo.
+//
+// The bank webhook field transaction_amount carries naira. The internal
+// type is Kobo, so we convert at the boundary and never let float
+// arithmetic touch money.
+//
+// Accepts:
+//
+//	"10000"     → 1_000_000 kobo
+//	"10000.5"   → 1_000_050 kobo
+//	"10000.50"  → 1_000_050 kobo
+//	"10000.55"  → 1_000_055 kobo
+//
+// Rejects: 3+ decimals (no sub-kobo for NGN), scientific notation,
+// leading zeros on whole part, signs, whitespace, empty.
+func ParseNaira(s string) (Kobo, error) {
+	if s == "" {
+		return 0, ErrEmpty
+	}
+
+	whole := s
+	frac := "00"
+	if dot := strings.IndexByte(s, '.'); dot >= 0 {
+		whole = s[:dot]
+		frac = s[dot+1:]
+		if len(frac) == 0 || len(frac) > 2 {
+			return 0, ErrNotInteger
+		}
+		if len(frac) == 1 {
+			frac += "0"
+		}
+	}
+
+	if whole == "" {
+		return 0, ErrNotInteger
+	}
+	if len(whole) > 1 && whole[0] == '0' {
+		return 0, ErrNotInteger
+	}
+	for i := range len(whole) {
+		if whole[i] < '0' || whole[i] > '9' {
+			return 0, ErrNotInteger
+		}
+	}
+	for i := range len(frac) {
+		if frac[i] < '0' || frac[i] > '9' {
+			return 0, ErrNotInteger
+		}
+	}
+
+	w, err := strconv.ParseInt(whole, 10, 64)
+	if err != nil {
+		return 0, ErrOutOfRange
+	}
+	f, err := strconv.ParseInt(frac, 10, 64)
+	if err != nil {
+		return 0, ErrOutOfRange
+	}
+
+	const maxNaira = int64(9223372036854775807) / 100
+	if w > maxNaira {
+		return 0, ErrOutOfRange
+	}
+
+	total := w*100 + f
+	if total <= 0 {
+		return 0, ErrNonPositive
+	}
+	return Kobo(total), nil
 }
 
 // String renders the amount as a plain integer, matching input shape.

@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -208,14 +209,31 @@ type Payload struct {
 }
 
 // defaultPayload returns a valid payload for the given fixture.
+// The test passes the amount in kobo (matching the DB column unit);
+// the helper formats it as a naira string for the wire, which is what
+// the bank webhook contract uses.
 func defaultPayload(f Fixture, amountKobo int64) Payload {
 	return Payload{
 		CustomerID:           f.CustomerID,
 		PaymentStatus:        "COMPLETE",
-		TransactionAmount:    strconv.FormatInt(amountKobo, 10),
+		TransactionAmount:    nairaString(amountKobo),
 		TransactionDate:      time.Now().UTC().Format("2006-01-02 15:04:05"),
 		TransactionReference: randomRef(),
 	}
+}
+
+// nairaString converts int64 kobo to a naira wire string.
+//   100      → "1"
+//   10000    → "100"
+//   10050    → "100.50"
+//   1        → "0.01"
+func nairaString(kobo int64) string {
+	if kobo%100 == 0 {
+		return strconv.FormatInt(kobo/100, 10)
+	}
+	whole := kobo / 100
+	frac := kobo % 100
+	return fmt.Sprintf("%d.%02d", whole, frac)
 }
 
 func randomRef() string {

@@ -224,7 +224,8 @@ func TestApply_InvalidAmount(t *testing.T) {
 	ts := newServer(t, pool)
 	f := newFixture(t, pool)
 
-	cases := []string{"", "0", "-1", "10.00", "1e4", "abc", " 10", "01"}
+	// Naira wire format: integer or up to 2 decimals. Reject the rest.
+	cases := []string{"", "0", "0.00", "-1", "10.555", "1e4", "abc", " 10", "10 ", "01", ".50", "10."}
 	for _, amount := range cases {
 		t.Run(amount, func(t *testing.T) {
 			p := defaultPayload(f, 1)

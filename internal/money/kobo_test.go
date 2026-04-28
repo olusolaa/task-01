@@ -68,6 +68,69 @@ func TestParseKobo(t *testing.T) {
 	}
 }
 
+func TestParseNaira(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		in      string
+		want    Kobo
+		wantErr error
+	}{
+		// happy paths
+		{in: "1", want: 100},
+		{in: "100", want: 10_000},
+		{in: "10000", want: 1_000_000},
+		{in: "10000.5", want: 1_000_050},
+		{in: "10000.50", want: 1_000_050},
+		{in: "10000.55", want: 1_000_055},
+		{in: "1.99", want: 199},
+		{in: "0.50", want: 50},
+		{in: "0.99", want: 99},
+
+		// rejected
+		{in: "", wantErr: ErrEmpty},
+		{in: "0", wantErr: ErrNonPositive},
+		{in: "0.00", wantErr: ErrNonPositive},
+		{in: "-1", wantErr: ErrNotInteger},
+		{in: "+1", wantErr: ErrNotInteger},
+		{in: "10.555", wantErr: ErrNotInteger},
+		{in: "10.", wantErr: ErrNotInteger},
+		{in: ".50", wantErr: ErrNotInteger},
+		{in: "10..50", wantErr: ErrNotInteger},
+		{in: "01", wantErr: ErrNotInteger},
+		{in: "010.50", wantErr: ErrNotInteger},
+		{in: "1e4", wantErr: ErrNotInteger},
+		{in: "1,000", wantErr: ErrNotInteger},
+		{in: " 10", wantErr: ErrNotInteger},
+		{in: "10 ", wantErr: ErrNotInteger},
+		{in: "abc", wantErr: ErrNotInteger},
+
+		// overflow: 92_233_720_368_547_758 naira would be int64 max kobo;
+		// anything beyond is rejected.
+		{in: "92233720368547759", wantErr: ErrOutOfRange},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.in, func(t *testing.T) {
+			t.Parallel()
+			got, err := ParseNaira(tc.in)
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Fatalf("ParseNaira(%q): err = %v, want %v", tc.in, err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseNaira(%q): unexpected err %v", tc.in, err)
+			}
+			if got != tc.want {
+				t.Fatalf("ParseNaira(%q) = %d, want %d", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestKoboFormatting(t *testing.T) {
 	t.Parallel()
 	if got := Kobo(10000).String(); got != "10000" {

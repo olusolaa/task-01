@@ -1,4 +1,7 @@
-# ADR 003: int64 kobo over NUMERIC(20,4)
+# ADR 003: int64 kobo over NUMERIC(20,4); naira on the wire
+
+> Update: clarified the wire-format / storage split. Storage type is unchanged.
+
 
 **Status:** accepted
 **Date:** 2025-11-07
@@ -15,13 +18,15 @@ The brief uses integer kobo in the payload (`"10000"`) and the currency is NGN, 
 
 ## Decision
 
-`BIGINT` in the database, wrapped in a named `money.Kobo` type (`type Kobo int64`) in Go.
+**Storage and arithmetic: `int64` kobo.** `BIGINT` in the database, wrapped in a named `money.Kobo` type (`type Kobo int64`) in Go.
 
 ```go
 type Kobo int64
 ```
 
-`Kobo` is distinct from `int64`: you cannot pass an untyped integer literal or a float expression where a `Kobo` is expected. The only way to construct one is through `money.ParseKobo(string)` or a type conversion, and a grep for `Kobo(` shows every construction site during review.
+`Kobo` is distinct from `int64`: you cannot pass an untyped integer literal or a float expression where a `Kobo` is expected. The only way to construct one is through a parser (`money.ParseKobo`, `money.ParseNaira`) or a type conversion, and a grep for `Kobo(` shows every construction site during review.
+
+**Wire format: naira string, up to 2 decimal places.** The bank webhook field `transaction_amount` is interpreted as naira. `money.ParseNaira` accepts integer-naira (`"10000"` → 1,000,000 kobo) or up to 2 fractional digits (`"100.50"` → 10,050 kobo) and rejects everything else (3+ decimals, scientific, signs, leading zeros, whitespace, empty). Conversion happens once at the service boundary; the rest of the codebase reasons in `Kobo`.
 
 ## Consequences
 

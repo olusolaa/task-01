@@ -115,9 +115,9 @@ expect "unknown customer"                       "$status" "404"
 # Scenario 6: invalid amount -> 400
 # ---------------------------------------------------------------------------
 body=$(jq -n -c --arg r "$(ref)" --arg d "$(now)" \
-    '{customer_id:"GIG00001", payment_status:"COMPLETE", transaction_amount:"10.00", transaction_date:$d, transaction_reference:$r}')
+    '{customer_id:"GIG00001", payment_status:"COMPLETE", transaction_amount:"10.555", transaction_date:$d, transaction_reference:$r}')
 status=$(post "$body")
-expect "invalid amount (10.00)"                 "$status" "400"
+expect "invalid amount (sub-kobo 10.555)"       "$status" "400"
 
 # ---------------------------------------------------------------------------
 # Scenario 7: bad HMAC -> 401

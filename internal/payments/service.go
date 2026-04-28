@@ -72,7 +72,7 @@ func (s *Service) ValidateAndParse(in RawInput) (Payment, error) {
 		return Payment{}, fmt.Errorf("%w: %q", ErrInvalidStatus, in.PaymentStatus)
 	}
 
-	amount, err := money.ParseKobo(in.TransactionAmount)
+	amount, err := money.ParseNaira(in.TransactionAmount)
 	if err != nil {
 		return Payment{}, fmt.Errorf("%w: %s", ErrInvalidAmount, err)
 	}
