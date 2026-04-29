@@ -5,6 +5,7 @@ package money
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -128,4 +129,19 @@ func (k Kobo) String() string {
 // Int64 returns the underlying count. Used when writing to SQL BIGINT columns.
 func (k Kobo) Int64() int64 {
 	return int64(k)
+}
+
+// Naira renders the amount as a decimal-naira string with exactly two
+// fractional digits. Sign-aware, so a negative drift like -500 kobo
+// renders "-5.00". Used in HTTP response bodies; storage stays kobo.
+func (k Kobo) Naira() string {
+	n := int64(k)
+	sign := ""
+	if n < 0 {
+		sign = "-"
+		n = -n
+	}
+	whole := n / 100
+	frac := n % 100
+	return fmt.Sprintf("%s%d.%02d", sign, whole, frac)
 }

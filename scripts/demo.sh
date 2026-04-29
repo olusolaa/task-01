@@ -137,12 +137,12 @@ expect "bad HMAC"                               "$status" "401"
 # ---------------------------------------------------------------------------
 status=$(curl -s -o /tmp/demo_body -w "%{http_code}" "$BASE_URL/customers/GIG00001/balance")
 expect "balance 200"                            "$status" "200"
-drift=$(jq -r '.deployments[0].drift_kobo' /tmp/demo_body)
-if [[ "$drift" != "0" ]]; then
+drift=$(jq -r '.deployments[0].drift_naira' /tmp/demo_body)
+if [[ "$drift" != "0.00" ]]; then
     echo "FAIL: drift=$drift on GIG00001 after happy-path apply"
     exit 1
 fi
-printf "  ok  %-50s zero\n" "balance drift"
+printf "  ok  %-50s %s\n" "balance drift" "$drift"
 
 echo
 echo "[demo] ALL SCENARIOS PASSED"

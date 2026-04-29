@@ -33,8 +33,9 @@ func TestApply_HappyPath(t *testing.T) {
 	if body["status"] != "applied" {
 		t.Fatalf("body status = %v", body["status"])
 	}
-	if got := int64(body["balance_after_kobo"].(float64)); got != valueKobo-10_000 {
-		t.Fatalf("balance_after = %d", got)
+	// 100_000_000 kobo - 10_000 kobo = 99_990_000 kobo = ₦999,900.00
+	if got := body["balance_after_naira"].(string); got != "999900.00" {
+		t.Fatalf("balance_after_naira = %q", got)
 	}
 	if stored := getBalance(t, pool, f.DeploymentID); stored != valueKobo-10_000 {
 		t.Fatalf("db balance = %d", stored)
@@ -295,11 +296,11 @@ func TestBalance_ReportsStoredComputedAndDrift(t *testing.T) {
 	var out struct {
 		CustomerID  string `json:"customer_id"`
 		Deployments []struct {
-			State               string `json:"state"`
-			ValueKobo           int64  `json:"value_kobo"`
-			StoredBalanceKobo   int64  `json:"stored_balance_kobo"`
-			ComputedBalanceKobo int64  `json:"computed_balance_kobo"`
-			DriftKobo           int64  `json:"drift_kobo"`
+			State                string `json:"state"`
+			ValueNaira           string `json:"value_naira"`
+			StoredBalanceNaira   string `json:"stored_balance_naira"`
+			ComputedBalanceNaira string `json:"computed_balance_naira"`
+			DriftNaira           string `json:"drift_naira"`
 		} `json:"deployments"`
 	}
 	if err := json.Unmarshal(readAll(t, resp.Body), &out); err != nil {
@@ -309,14 +310,15 @@ func TestBalance_ReportsStoredComputedAndDrift(t *testing.T) {
 		t.Fatalf("got %d deployments", len(out.Deployments))
 	}
 	d := out.Deployments[0]
-	if d.StoredBalanceKobo != valueKobo-15_000 {
-		t.Fatalf("stored = %d", d.StoredBalanceKobo)
+	// 100_000_000 kobo - 15_000 kobo = 99_985_000 kobo = ₦999,850.00
+	if d.StoredBalanceNaira != "999850.00" {
+		t.Fatalf("stored = %q", d.StoredBalanceNaira)
 	}
-	if d.ComputedBalanceKobo != valueKobo-15_000 {
-		t.Fatalf("computed = %d", d.ComputedBalanceKobo)
+	if d.ComputedBalanceNaira != "999850.00" {
+		t.Fatalf("computed = %q", d.ComputedBalanceNaira)
 	}
-	if d.DriftKobo != 0 {
-		t.Fatalf("drift = %d, want 0", d.DriftKobo)
+	if d.DriftNaira != "0.00" {
+		t.Fatalf("drift = %q, want 0.00", d.DriftNaira)
 	}
 }
 
@@ -348,14 +350,14 @@ func TestBalance_DetectsDrift(t *testing.T) {
 
 	var out struct {
 		Deployments []struct {
-			DriftKobo int64 `json:"drift_kobo"`
+			DriftNaira string `json:"drift_naira"`
 		} `json:"deployments"`
 	}
 	if err := json.Unmarshal(readAll(t, resp.Body), &out); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if out.Deployments[0].DriftKobo != -500 {
-		t.Fatalf("drift = %d, want -500", out.Deployments[0].DriftKobo)
+	if out.Deployments[0].DriftNaira != "-5.00" {
+		t.Fatalf("drift = %q, want -5.00", out.Deployments[0].DriftNaira)
 	}
 }
 

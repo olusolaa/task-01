@@ -37,7 +37,7 @@ Handler         <-- JSON decode (DisallowUnknownFields)
   |
   v
 Service.ValidateAndParse
-  |             amount   strict integer kobo
+  |             amount   naira string, integer or up to 2 decimals
   |             date     UTC, <= now + clock_skew_grace
   |             status   one of { COMPLETE, PENDING, FAILED, REVERSED }
   v

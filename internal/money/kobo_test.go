@@ -143,3 +143,27 @@ func TestKoboFormatting(t *testing.T) {
 		t.Fatalf("Int64() = %d, want 10000", got)
 	}
 }
+
+func TestKoboNaira(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		k    int64
+		want string
+	}{
+		{0, "0.00"},
+		{1, "0.01"},
+		{50, "0.50"},
+		{99, "0.99"},
+		{100, "1.00"},
+		{1050, "10.50"},
+		{1000000, "10000.00"},
+		{99000000, "990000.00"},
+		{-500, "-5.00"},
+		{-1, "-0.01"},
+	}
+	for _, c := range cases {
+		if got := Kobo(c.k).Naira(); got != c.want {
+			t.Fatalf("Kobo(%d).Naira() = %q, want %q", c.k, got, c.want)
+		}
+	}
+}

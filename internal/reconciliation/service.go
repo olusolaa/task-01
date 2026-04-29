@@ -14,6 +14,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/olusolaa/paybook/internal/money"
 )
 
 var ErrCustomerNotFound = errors.New("customer_not_found")
@@ -30,12 +32,12 @@ type CustomerBalance struct {
 }
 
 type DeploymentBalance struct {
-	DeploymentID        string `json:"deployment_id"`
-	State               string `json:"state"`
-	ValueKobo           int64  `json:"value_kobo"`
-	StoredBalanceKobo   int64  `json:"stored_balance_kobo"`
-	ComputedBalanceKobo int64  `json:"computed_balance_kobo"`
-	DriftKobo           int64  `json:"drift_kobo"`
+	DeploymentID         string `json:"deployment_id"`
+	State                string `json:"state"`
+	ValueNaira           string `json:"value_naira"`
+	StoredBalanceNaira   string `json:"stored_balance_naira"`
+	ComputedBalanceNaira string `json:"computed_balance_naira"`
+	DriftNaira           string `json:"drift_naira"`
 }
 
 func (s *Service) ForCustomer(ctx context.Context, customerID string) (*CustomerBalance, error) {
@@ -70,14 +72,21 @@ func (s *Service) ForCustomer(ctx context.Context, customerID string) (*Customer
 
 	out := &CustomerBalance{CustomerID: customerID}
 	for rows.Next() {
-		var b DeploymentBalance
-		if err := rows.Scan(
-			&b.DeploymentID, &b.State, &b.ValueKobo, &b.StoredBalanceKobo, &b.ComputedBalanceKobo,
-		); err != nil {
+		var (
+			depID, state                 string
+			valueKobo, storedKobo, compKobo int64
+		)
+		if err := rows.Scan(&depID, &state, &valueKobo, &storedKobo, &compKobo); err != nil {
 			return nil, fmt.Errorf("scan deployment: %w", err)
 		}
-		b.DriftKobo = b.StoredBalanceKobo - b.ComputedBalanceKobo
-		out.Deployments = append(out.Deployments, b)
+		out.Deployments = append(out.Deployments, DeploymentBalance{
+			DeploymentID:         depID,
+			State:                state,
+			ValueNaira:           money.Kobo(valueKobo).Naira(),
+			StoredBalanceNaira:   money.Kobo(storedKobo).Naira(),
+			ComputedBalanceNaira: money.Kobo(compKobo).Naira(),
+			DriftNaira:           money.Kobo(storedKobo - compKobo).Naira(),
+		})
 	}
 	if err := rows.Err(); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("scan rows: %w", err)

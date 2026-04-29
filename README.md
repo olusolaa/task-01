@@ -50,13 +50,13 @@ Responses:
 
 | Status | Body shape                                                                 | When |
 |-------:|---|---|
-|    201 | `{"status":"applied","transaction_reference":...,"balance_after_kobo":...}` | Fresh payment applied. |
+|    201 | `{"status":"applied","transaction_reference":...,"amount_applied_naira":"10000.00","balance_after_naira":"990000.00",...}` | Fresh payment applied. |
 |    201 | same bytes as original, with `Idempotent-Replayed: true` header            | Duplicate `transaction_reference`. |
 |    202 | `{"status":"recorded","payment_status":"PENDING",...}`                     | `payment_status` other than `COMPLETE`. Recorded for audit, balance untouched. |
 |    400 | `{"error":"invalid_amount"\|"invalid_date"\|"invalid_status"\|"invalid_payload"}` | Validation failed. |
 |    401 | `{"error":"missing_signature"\|"invalid_signature"}`                       | HMAC verification failed; nothing persisted. |
 |    404 | `{"error":"customer_not_found"\|"no_active_deployment"}`                   | Routing failed. |
-|    409 | `{"error":"overpayment","outstanding_kobo":...}`                            | Amount exceeds current balance. |
+|    409 | `{"error":"overpayment","outstanding_naira":"50000.00"}`                    | Amount exceeds current balance. |
 |    409 | `{"error":"deployment_inactive","deployment_state":"FULLY_REPAID"}`         | Deployment not in `ACTIVE` state. |
 
 ### `GET /customers/{id}/balance`
@@ -70,10 +70,10 @@ Returns stored balance, computed balance (recomputed from the ledger), and the d
     {
       "deployment_id": "...",
       "state": "ACTIVE",
-      "value_kobo": 100000000,
-      "stored_balance_kobo": 99975000,
-      "computed_balance_kobo": 99975000,
-      "drift_kobo": 0
+      "value_naira": "1000000.00",
+      "stored_balance_naira": "999750.00",
+      "computed_balance_naira": "999750.00",
+      "drift_naira": "0.00"
     }
   ]
 }

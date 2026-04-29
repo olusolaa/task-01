@@ -214,11 +214,11 @@ func decide(p Payment, dep *Deployment) decision {
 		}
 
 	case p.AmountKobo > dep.CurrentBalanceKobo:
-		outstanding := dep.CurrentBalanceKobo.Int64()
+		outstanding := dep.CurrentBalanceKobo.Naira()
 		body := mustJSON(rejectedBody{
 			Error:                "overpayment",
 			TransactionReference: p.TransactionReference,
-			OutstandingKobo:      &outstanding,
+			OutstandingNaira:     &outstanding,
 		})
 		return decision{
 			result:       ResultRejected,
@@ -238,8 +238,8 @@ func decide(p Payment, dep *Deployment) decision {
 		Status:               "applied",
 		TransactionReference: p.TransactionReference,
 		DeploymentID:         dep.ID,
-		AmountAppliedKobo:    p.AmountKobo.Int64(),
-		BalanceAfterKobo:     newBalance.Int64(),
+		AmountAppliedNaira:   p.AmountKobo.Naira(),
+		BalanceAfterNaira:    newBalance.Naira(),
 		DeploymentState:      string(newState),
 	})
 	return decision{
@@ -255,8 +255,8 @@ type appliedBody struct {
 	Status               string `json:"status"`
 	TransactionReference string `json:"transaction_reference"`
 	DeploymentID         string `json:"deployment_id"`
-	AmountAppliedKobo    int64  `json:"amount_applied_kobo"`
-	BalanceAfterKobo     int64  `json:"balance_after_kobo"`
+	AmountAppliedNaira   string `json:"amount_applied_naira"`
+	BalanceAfterNaira    string `json:"balance_after_naira"`
 	DeploymentState      string `json:"deployment_state"`
 }
 
@@ -270,7 +270,7 @@ type recordedBody struct {
 type rejectedBody struct {
 	Error                string  `json:"error"`
 	TransactionReference string  `json:"transaction_reference"`
-	OutstandingKobo      *int64  `json:"outstanding_kobo,omitempty"`
+	OutstandingNaira     *string `json:"outstanding_naira,omitempty"`
 	DeploymentState      *string `json:"deployment_state,omitempty"`
 }
 
